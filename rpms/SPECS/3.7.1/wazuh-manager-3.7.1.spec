@@ -134,9 +134,24 @@ rm -f ${RPM_BUILD_ROOT}%{_localstatedir}/ossec/etc/sslmanager*
 exit 0
 %pre
 
-# Stop Authd if it is running
-if ps aux | grep %{_localstatedir}/ossec/bin/ossec-authd | grep -v grep > /dev/null 2>&1; then
-   kill `ps -ef | grep '%{_localstatedir}/ossec/bin/ossec-authd' | grep -v grep | awk '{print $2}'` > /dev/null 2>&1
+# Stop the manager before upgrade it
+if [ $1 = 2 ]; then
+  # Check for systemd
+  if command -v systemctl >/dev/null; then
+    systemctl stop wazuh-manager > /dev/null 2>&1
+  # Check for SysV
+  elif command -v chkconfig >/dev/null; then
+    service wazuh-manager stop > /dev/null 2>&1
+  # Check for upstart
+  elif command -v update-rc.d >/dev/null; then
+    # Check for RHEL based OS
+    if [ -f /etc/rc.d/init.d/wazuh-manager ]; then
+      /etc/init.d/wazuh-manager stop > /dev/null 2>&1
+    # Check for SUSE
+    elif [ -f /etc/init.d/wazuh-manager ]; then
+      /etc/rc.d/init.d/wazuh-manager stop > /dev/null 2>&1
+    fi
+  fi
 fi
 
 # Ensure that the wazuh-manager is stopped
@@ -166,10 +181,6 @@ if ! id -u ossecm > /dev/null 2>&1; then
         -r -s /sbin/nologin ossecm
 fi
 
-if [ -d ${DIR}/var/db/agents ]; then
-  rm -f ${DIR}/var/db/agents/*
-fi
-
 # Remove existing SQLite databases
 rm -f %{_localstatedir}/ossec/var/db/global.db* || true
 rm -f %{_localstatedir}/ossec/var/db/cluster.db* || true
@@ -180,12 +191,12 @@ rm -f %{_localstatedir}/ossec/var/db/agents/* || true
 # Remove existing SQLite databases for Wazuh DB when upgrading
 # Wazuh only if upgrading from 3.2..3.6
 if [ $1 = 2 ]; then
-  
+
   # Import the variables from ossec-init.conf file
   if [ -f %{_sysconfdir}/ossec-init.conf ]; then
     . %{_sysconfdir}/ossec-init.conf
   fi
-  
+
   # Get the major and minor version
   MAJOR=$(echo $VERSION | cut -dv -f2 | cut -d. -f1)
   MINOR=$(echo $VERSION | cut -d. -f2)
@@ -196,23 +207,8 @@ if [ $1 = 2 ]; then
   fi
 fi
 
-# Delete old service
-if [ -f /etc/init.d/ossec ]; then
-  rm /etc/init.d/ossec
-fi
-# Execute this if only when installing the package
-if [ $1 = 1 ]; then
-  if [ -f %{_localstatedir}/ossec/etc/ossec.conf ]; then
-    echo "====================================================================================="
-    echo "= Backup from your ossec.conf has been created at %{_localstatedir}/ossec/etc/ossec.conf.rpmorig ="
-    echo "= Please verify your ossec.conf configuration at %{_localstatedir}/ossec/etc/ossec.conf          ="
-    echo "====================================================================================="
-    mv %{_localstatedir}/ossec/etc/ossec.conf %{_localstatedir}/ossec/etc/ossec.conf.rpmorig
-  fi
-fi
 # Execute this if only when upgrading the package
 if [ $1 = 2 ]; then
-    cp -rp %{_localstatedir}/ossec/etc/ossec.conf %{_localstatedir}/ossec/etc/ossec.bck
     cp -rp %{_localstatedir}/ossec/etc/shared %{_localstatedir}/ossec/backup/
     if [ ! -d %{_localstatedir}/ossec/etc/shared/default ]; then
       mkdir  %{_localstatedir}/ossec/etc/shared/default
@@ -223,7 +219,7 @@ if [ $1 = 2 ]; then
 fi
 %post
 
-# If the package is being installed 
+# If the package is being installed
 . %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/init/dist-detect.sh
 if [ $1 = 1 ]; then
   # Generating ossec.conf file
@@ -287,22 +283,20 @@ if [ $1 = 1 ]; then
     fi
   fi
 
-  touch %{_localstatedir}/ossec/logs/active-responses.log 
+  touch %{_localstatedir}/ossec/logs/active-responses.log
   touch %{_localstatedir}/ossec/logs/integrations.log
-  chown ossec:ossec %{_localstatedir}/ossec/logs/active-responses.log 
+  chown ossec:ossec %{_localstatedir}/ossec/logs/active-responses.log
   chown ossecm:ossec %{_localstatedir}/ossec/logs/integrations.log
-  chmod 0660 %{_localstatedir}/ossec/logs/active-responses.log 
+  chmod 0660 %{_localstatedir}/ossec/logs/active-responses.log
   chmod 0640 %{_localstatedir}/ossec/logs/integrations.log
 
   # Add default local_files to ossec.conf
   %{_localstatedir}/ossec/packages_files/manager_installation_scripts/add_localfiles.sh %{_localstatedir}/ossec >> %{_localstatedir}/ossec/etc/ossec.conf
-   /sbin/chkconfig --add wazuh-manager
-   /sbin/chkconfig wazuh-manager on
 
-  # If systemd is installed, add the wazuh-manager.service file to systemd files directory
-  if [ -d /run/systemd/system ]; then
+  # Check for systemd
+  if command -v systemctl >/dev/null; then
+
     install -m 644 %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/systemd/wazuh-manager.service /etc/systemd/system/
-
     # Fix for Fedora 28
     # Check if SELinux is installed. If it is installed, restore the context of the .service file
     if [ "${DIST_NAME}" == "fedora" -a "${DIST_VER}" == "28" ]; then
@@ -311,8 +305,20 @@ if [ $1 = 1 ]; then
       fi
     fi
     systemctl daemon-reload
-    systemctl stop wazuh-manager
     systemctl enable wazuh-manager > /dev/null 2>&1
+  # Check for SysV
+  elif command -v chkconfig >/dev/null; then
+    /sbin/chkconfig --add wazuh-manager
+    /sbin/chkconfig wazuh-manager on
+  # Check for upstart
+  elif command -v update-rc.d >/dev/null; then
+    # Check for RHEL based OS
+    if [ -f /etc/rc.d/init.d/wazuh-manager ]; then
+      /etc/init.d/wazuh-manager stop > /dev/null 2>&1
+    # Check for SUSE
+    elif [ -f /etc/init.d/wazuh-manager ]; then
+      /etc/rc.d/init.d/wazuh-manager stop > /dev/null 2>&1
+    fi
   fi
 
 fi
@@ -332,12 +338,6 @@ fi
 
 rm %{_localstatedir}/ossec/etc/shared/ar.conf  >/dev/null 2>&1 || true
 rm %{_localstatedir}/ossec/etc/shared/merged.mg  >/dev/null 2>&1 || true
-
-if [ $1 = 2 ]; then
-  if [ -f %{_localstatedir}/ossec/etc/ossec.bck ]; then
-      mv %{_localstatedir}/ossec/etc/ossec.bck %{_localstatedir}/ossec/etc/ossec.conf
-  fi
-fi
 
 # Agent info change between 2.1.1 and 3.0.0
 chmod 0660 %{_localstatedir}/ossec/queue/agent-info/* 2>/dev/null || true
@@ -374,7 +374,22 @@ fi
 rm -rf %{_localstatedir}/ossec/packages_files
 
 if %{_localstatedir}/ossec/bin/ossec-logtest 2>/dev/null ; then
-  /sbin/service wazuh-manager restart > /dev/null 2>&1
+  # Check for systemd
+  if command -v systemctl >/dev/null; then
+    systemctl start wazuh-manager > /dev/null 2>&1
+  # Check for SysV
+  elif command -v chkconfig >/dev/null; then
+    /sbin/service wazuh-manager restart > /dev/null 2>&1
+  # Check for upstart
+  elif command -v update-rc.d >/dev/null; then
+    # Check for RHEL based OS
+    if [ -f /etc/rc.d/init.d/wazuh-manager ]; then
+      /etc/init.d/wazuh-manager start > /dev/null 2>&1
+    # Check for SUSE
+    elif [ -f /etc/init.d/wazuh-manager ]; then
+      /etc/rc.d/init.d/wazuh-manager start > /dev/null 2>&1
+    fi
+  fi
 else
   echo "================================================================================================================"
   echo "Something in your actual rules configuration is wrong, please review your configuration and restart the service."
@@ -396,7 +411,7 @@ if [ $1 = 0 ]; then
   if [ -r "/etc/centos-release" ]; then
     DIST_NAME="centos"
     DIST_VER=`sed -rn 's/.* ([0-9]{1,2})\.[0-9]{1,2}.*/\1/p' /etc/centos-release`
-  
+
   elif [ -r "/etc/redhat-release" ]; then
     DIST_NAME="rhel"
     DIST_VER=`sed -rn 's/.* ([0-9]{1,2})\.[0-9]{1,2}.*/\1/p' /etc/redhat-release`
@@ -412,7 +427,7 @@ if [ $1 = 0 ]; then
   if [ "${DIST_NAME}" == "centos" -a "${DIST_VER}" == "5" ] || [ "${DIST_NAME}" == "rhel" -a "${DIST_VER}" == "5" ] || [ "${DIST_NAME}" == "suse" -a "${DIST_VER}" == "11" ] ; then
     add_selinux="no"
   fi
-  
+
   # If it is a valid system, remove the policy if it is installed
   if [ ${add_selinux} == "yes" ]; then
     if command -v getenforce > /dev/null 2>&1 && command -v semodule > /dev/null 2>&1; then
@@ -426,7 +441,7 @@ if [ $1 = 0 ]; then
 
   # Remove the service files
   rm -f /etc/systemd/system/wazuh-manager.service
-  
+
 fi
 
 %postun
@@ -449,7 +464,7 @@ if [ $1 == 0 ];then
   if id -g ossec > /dev/null 2>&1; then
     groupdel ossec
   fi
-  
+
   # Backup agents centralized configuration (etc/shared)
   if [ -d %{_localstatedir}/ossec/etc/shared ]; then
       rm -rf %{_localstatedir}/ossec/etc/shared.save/
@@ -463,7 +478,7 @@ if [ $1 == 0 ];then
   if [ -f %{_localstatedir}/ossec/etc/sslmanager.key ]; then
       mv %{_localstatedir}/ossec/etc/sslmanager.key %{_localstatedir}/ossec/etc/sslmanager.key.save
   fi
-    
+
   # Remove lingering folders and files
   rm -rf %{_localstatedir}/ossec/queue/
   rm -rf %{_localstatedir}/ossec/framework/
@@ -471,7 +486,7 @@ if [ $1 == 0 ];then
   rm -rf %{_localstatedir}/ossec/var/
   rm -rf %{_localstatedir}/ossec/bin/
   rm -rf %{_localstatedir}/ossec/logs/
-  
+
 fi
 
 
@@ -670,7 +685,7 @@ rm -fr %{buildroot}
 %attr(750, root, ossec) %{_localstatedir}/ossec/wodles/docker/*
 %dir %attr(750, root, ossec) %{_localstatedir}/ossec/wodles/oscap
 %attr(750, root, ossec) %{_localstatedir}/ossec/wodles/oscap/oscap.*
-%attr(750, root, ossec) %{_localstatedir}/ossec/wodles/oscap/template*  
+%attr(750, root, ossec) %{_localstatedir}/ossec/wodles/oscap/template*
 %dir %attr(750, root, ossec) %{_localstatedir}/ossec/wodles/oscap/content
 %attr(640, root, ossec) %{_localstatedir}/ossec/wodles/oscap/content/*
 
