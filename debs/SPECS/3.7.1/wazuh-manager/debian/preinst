@@ -68,7 +68,7 @@ case "$1" in
               mkdir -p  ${DIR}/etc/shared/default
               chown ossec:ossec ${DIR}/etc/shared/default
               chmod -R 770 ${DIR}/etc/shared/default
-              find ${DIR}/etc/shared -maxdepth 1 -type f \( -name "*.txt" -o -name "merged.mg" \) -exec cp -rp {} ${DIR}etc/shared/default \;
+              find ${DIR}/etc/shared -maxdepth 1 -type f \( -name "*.txt" -o -name "merged.mg" \) -exec cp -rp {} ${DIR}/etc/shared/default \;
               find ${DIR}/etc/shared -maxdepth 1 -type f \( -name "*.txt" -o -name "merged.mg" \) -exec rm {} \;
             fi
 

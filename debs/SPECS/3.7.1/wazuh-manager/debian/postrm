@@ -1,5 +1,5 @@
 #!/bin/sh
-# postrm script for Wazuh 
+# postrm script for Wazuh
 # Wazuh, Inc 2016
 set -e
 DIR="/var/ossec"
@@ -38,8 +38,6 @@ case "$1" in
         rm -rf ${WAZUH_TMP_DIR}
     fi
 
-	
-
     if [ -d /run/systemd/system ] ; then
         systemctl disable wazuh-manager > /dev/null 2>&1
         systemctl daemon-reload
@@ -58,17 +56,21 @@ case "$1" in
         mv ${DIR}/tmp/conffiles/shared/default/agent.conf ${DIR}/etc/shared/default/agent.conf.save
     fi
     rm -rf ${DIR}/tmp/conffiles/shared/
-    
-    # If the directory is not empty, copy the files into ${DIR}/etc
-    if [ "$(ls -A ${DIR}/tmp/conffiles)" ]; then
-        cp -Rf ${DIR}/tmp/conffiles/* ${DIR}/etc
-    fi
-    rm -rf ${DIR}/tmp/conffiles
-    rm -rf ${DIR}/tmp
 
-    # Rename the files
-    find /var/ossec/etc/ -type f ! -name *shared* -exec mv {} {}.save \;
-    
+    # If the directory is not empty, copy the files into ${DIR}/etc
+    if [ -d ${DIR}/tmp/conffiles ]; then
+        if [ "$(ls -A ${DIR}/tmp/conffiles)" ]; then
+            cp -Rf ${DIR}/tmp/conffiles/* ${DIR}/etc
+        fi
+    fi
+
+    rm -rf ${DIR}/tmp/*
+
+    if [ "$1" != "failed-upgrade" ]; then
+        # Rename the files
+        find /var/ossec/etc/ -type f ! -name *shared* -exec mv {} {}.save \;
+    fi
+
     ;;
 
     purge)
