@@ -7,8 +7,6 @@ set -e
 case "$1" in
     configure)
 
-    OS=$(lsb_release -si)
-    VER=$(lsb_release -sr)
     DIR="/var/ossec"
     USER="ossec"
     GROUP="ossec"
@@ -35,13 +33,13 @@ case "$1" in
     chown root:${GROUP} ${DIR}/etc/ossec-init.conf
     chmod 640 ${DIR}/etc/ossec-init.conf
 
+    . ${SCRIPTS_DIR}/src/init/dist-detect.sh
     if [ -z "$2" ] || [ -f ${WAZUH_TMP_DIR}/create_conf ] ; then
-
-        ${SCRIPTS_DIR}/gen_ossec.sh conf agent ${OS} ${VER} > ${DIR}/etc/ossec.conf
+        ${SCRIPTS_DIR}/gen_ossec.sh conf agent ${DIST_NAME} ${DIST_VER} > ${DIR}/etc/ossec.conf
         ${SCRIPTS_DIR}/add_localfiles.sh >> ${DIR}/etc/ossec.conf
 
     else
-        ${SCRIPTS_DIR}/gen_ossec.sh conf agent ${OS} ${VER} > ${DIR}/etc/ossec.conf.new
+        ${SCRIPTS_DIR}/gen_ossec.sh conf agent ${DIST_NAME} ${DIST_VER} > ${DIR}/etc/ossec.conf.new
         chmod 640 ${DIR}/etc/ossec.conf.new
     fi
 
