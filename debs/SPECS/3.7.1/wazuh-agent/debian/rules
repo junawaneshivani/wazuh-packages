@@ -89,6 +89,12 @@ override_dh_install:
 	mkdir -p ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/generic
 	cp -r etc/templates/config/generic/* ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/generic
 
+	mkdir -p ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/debian
+	cp -r etc/templates/config/debian/* ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/debian
+
+	mkdir -p ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/ubuntu
+	cp -r etc/templates/config/ubuntu/* ${TARGET_DIR}$(INSTALLATION_SCRIPTS_DIR)/etc/templates/config/ubuntu
+
 	# Copying systemd file
 	mkdir -p ${TARGET_DIR}/etc/
 	mkdir -p ${TARGET_DIR}/etc/systemd/
