@@ -214,6 +214,9 @@ fi
 if [ $1 = 1 ]; then
   . %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/init/dist-detect.sh
 
+
+  %{_localstatedir}/ossec/framework/python/bin/python3 %{_localstatedir}/ossec/api/migration.py
+
   sles=""
   if [ -f /etc/os-release ]; then
     if `grep -q "\"sles" /etc/os-release` ; then
@@ -347,9 +350,8 @@ if [ $1 = 1 ]; then
     rm -rf ${API_PATH}
   fi
 
-   %{_localstatedir}/ossec/framework/python/bin/python3 %{_localstatedir}/ossec/api/migration.py
-
   rm -rf ${API_PATH_BACKUP}
+
 fi
 
 if [ -f "%{_localstatedir}/ossec/etc/shared/agent.conf" ]; then

@@ -10,7 +10,7 @@
 
 CURRENT_PATH="$( cd $(dirname $0) ; pwd -P )"
 ARCHITECTURE="amd64"
-OUTDIR="${HOME}/3.x/apt-dev/"
+OUTDIR="/home/druizz/Git"
 BRANCH="master"
 REVISION="1"
 TARGET=""
@@ -46,7 +46,7 @@ build_deb() {
     cp gen_permissions.sh ${SOURCES_DIRECTORY}
 
     if [[ "$TARGET" != "api" ]]; then
-        VERSION="$(cat ${SOURCES_DIRECTORY}/src/VERSION | cut -d 'v' -f 2)"
+        VERSION="4.0.0"
     else
         VERSION="$(grep version ${SOURCES_DIRECTORY}/package.json | cut -d '"' -f 4)"
     fi
