@@ -302,7 +302,14 @@ if [ $1 = 1 ]; then
 
   # If systemd is installed, add the wazuh-manager.service file to systemd files directory
   if [ -d /run/systemd/system ]; then
-    install -m 644 %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/systemd/wazuh-manager.service /etc/systemd/system/
+
+    # Fix for RHEL 8
+    # Service must be installed in /usr/lib/systemd/system/
+    if [ "${DIST_NAME}" == "rhel" -a "${DIST_VER}" == "8" ]; then
+      install -m 644 %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/systemd/wazuh-manager.service /usr/lib/systemd/system/
+    else
+      install -m 644 %{_localstatedir}/ossec/packages_files/manager_installation_scripts/src/systemd/wazuh-manager.service /etc/systemd/system/
+    fi
 
     # Fix for Fedora 28
     # Check if SELinux is installed. If it is installed, restore the context of the .service file
@@ -326,7 +333,7 @@ fi
 
 # Generation auto-signed certificate if not exists
 if type openssl >/dev/null 2>&1 && [ ! -f "%{_localstatedir}/ossec/etc/sslmanager.key" ] && [ ! -f "%{_localstatedir}/ossec/etc/sslmanager.cert" ]; then
-  openssl req -x509 -batch -nodes -days 365 -newkey rsa:2048 -subj "/C=US/ST=California/CN=Wazuh/" -keyout %{_localstatedir}/ossec/etc/sslmanager.key -out %{_localstatedir}/ossec/etc/sslmanager.cert
+  openssl req -x509 -batch -nodes -days 365 -newkey rsa:2048 -subj "/C=US/ST=California/CN=Wazuh/" -keyout %{_localstatedir}/ossec/etc/sslmanager.key -out %{_localstatedir}/ossec/etc/sslmanager.cert 2>/dev/null
   chmod 640 %{_localstatedir}/ossec/etc/sslmanager.key
   chmod 640 %{_localstatedir}/ossec/etc/sslmanager.cert
 fi
@@ -428,7 +435,12 @@ if [ $1 = 0 ]; then
   fi
 
   # Remove the service files
-  rm -f /etc/systemd/system/wazuh-manager.service
+  # RHEL 8 service located in /usr/lib/systemd/system/
+  if [ -f /usr/lib/systemd/system/wazuh-manager.service ]; then
+    rm -f /usr/lib/systemd/system/wazuh-manager.service
+  else
+    rm -f /etc/systemd/system/wazuh-manager.service
+  fi
 
 fi
 
